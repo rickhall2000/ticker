@@ -8,23 +8,22 @@
          adjustment (* numerator 0.01M)]
     (+ old-price adjustment)))
 
-(defn new-transaction [symbol price]
-  {:symbol symbol
-;;   :time (java.util.Date.) I will want this later
-   :price price})
-
 (defn random-time [t]
   (* t (+ 1 (rand-int 5))))
+
+(defn new-transaction [symbol price]
+  {:symbol symbol
+   :time (java.util.Date.)
+   :price price})
 
 (defn make-ticker [symbol t start-price]
   (let [c (chan)]
     (go
      (loop [price start-price]
        (let [new-price (adjust-price price)]
-         (do
-           (<! (timeout (random-time t)))
-           (>! c (new-transaction symbol new-price))
-           (recur new-price)))))
+         (<! (timeout (random-time t)))
+         (>! c (new-transaction symbol new-price))
+         (recur new-price))))
     c))
 
 (def stocks [ ;; symbol min-interval starting-price
@@ -40,7 +39,8 @@
              ["T" 600 35]])
 
 (defn run-sim []
-  (let [ticker (async/merge (map #(apply make-ticker %) stocks)) ]
+  (let [ticker (async/merge
+                (map #(apply make-ticker %) stocks))]
     (go
      (loop [x 0]
        (when (< x 1000)
