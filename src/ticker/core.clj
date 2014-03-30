@@ -1,7 +1,12 @@
 (ns ticker.core
   (:require [clojure.core.async
              :refer [chan <! >! timeout go]
-              :as async]))
+             :as async]
+            [compojure.core :refer [defroutes GET]]
+            [org.httpkit.server :refer [with-channel run-server on-close]]
+            [compojure.handler :as handler]
+            [ring.middleware.cors :refer [wrap-cors]]
+            ))
 
 (defn adjust-price [old-price]
   (let  [numerator (- (rand-int 30) 15)
@@ -46,3 +51,27 @@
        (when (< x 1000)
          (do (println (str x "-" (<! ticker)))
              (recur (inc x))))))))
+
+(def clients (atom {}))
+
+(defn ws
+  [req]
+  (with-channel req con
+    (swap! clients assoc con true)
+    (println con " connected")
+    (on-close con (fn [status]
+                    (swap! clients dissoc con)
+                    (println con "disconnected. status" status)))))
+
+(defroutes routes
+  (GET "/ticker" [] ws))
+
+(def application (-> (handler/site routes)
+                     (wrap-cors
+                      :access-control-allow-origin #".+")))
+
+(defn -main [& args]
+  (let [port (Integer/parseInt
+              (or (System/getenv "PORT") "8080"))]
+    (println "starting server on port: " port)
+    (run-server application {:port port :join? false })))
