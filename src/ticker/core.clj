@@ -3,7 +3,7 @@
              :refer [chan <! >! timeout go]
              :as async]
             [compojure.core :refer [defroutes GET]]
-            [org.httpkit.server :refer [with-channel run-server on-close]]
+            [org.httpkit.server :refer [with-channel run-server on-close send!]]
             [compojure.handler :as handler]
             [ring.middleware.cors :refer [wrap-cors]]
             ))
@@ -43,14 +43,6 @@
              ["RHT" 10200  53]
              ["T" 600 35]])
 
-(defn run-sim []
-  (let [ticker (async/merge
-                (map #(apply make-ticker %) stocks))]
-    (go
-     (loop [x 0]
-       (when (< x 1000)
-         (do (println (str x "-" (<! ticker)))
-             (recur (inc x))))))))
 
 (def clients (atom {}))
 
@@ -70,8 +62,23 @@
                      (wrap-cors
                       :access-control-allow-origin #".+")))
 
+(defn send-update [msg]
+  (doseq [client @clients]
+    (send! (key client)
+           (pr-str msg) false)))
+
+(defn run-sim []
+  (let [ticker (async/merge
+                (map #(apply make-ticker %) stocks))]
+    (go
+     (loop [x 0]
+       (send-update (<! ticker))
+       (recur (inc x))))))
+
+
 (defn -main [& args]
   (let [port (Integer/parseInt
               (or (System/getenv "PORT") "8080"))]
     (println "starting server on port: " port)
+    (run-sim)
     (run-server application {:port port :join? false })))
