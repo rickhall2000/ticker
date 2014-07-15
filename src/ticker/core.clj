@@ -11,7 +11,7 @@
 (defn adjust-price [old-price]
   (let  [numerator (- (rand-int 30) 15)
          adjustment (* numerator 0.01M)]
-    (+ old-price adjustment)))
+    (max 0.01M (+ old-price adjustment))))
 
 (defn random-time [t]
   (* t (+ 1 (rand-int 5))))
